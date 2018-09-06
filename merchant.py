@@ -27,6 +27,9 @@ class Project:
 	# Class variables, the count gives the project id
 	count: int = 0
 
+	theta_min: float = 0.5
+	theta_max: float = 2.0
+
 	def __init__(self, k, theta):
 		if (k>0) and (theta>0):
 			Project.count += 1
