@@ -5,7 +5,6 @@ from merchant import Merchant, Project
 no_merchants: int = 5
 no_projs: int = 5
 
-
 merchants=np.array(no_merchants)
 
 #Create the merchants
@@ -13,6 +12,16 @@ for i in range(no_merchants):
 	merchants[i]=Merchant()
 
 #Create the connections
+for i in range(no_merchants):
+	no_connections = Merchant.initial_no_connections
+	lower = i-int(np.floor(no_connections/2))
+	upper = i+ int(np.ceil(no_connections/2))
+
+	for j in range(lower,upper):
+		# Connect from here to there
+
+
+
 
 project_list=[]
 thetas = np.random.uniform(Project.theta_min,Project.theta_max,no_projs)

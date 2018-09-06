@@ -22,6 +22,27 @@ class Merchant:
 		self.connections = []
 		self.projects = []
 
+	def Connect_Merchant(merchant_obj_from, merchant_obj_to , distance):
+		# i and j should be objects
+		#Allow for asymmetric connections (i.e. should be called Connect_Merchant(merchant_obj_2,merchant_obj_1, distance)
+
+		#check if merchant_obj_to.id is in merchant_obj_from's connections
+		merchant_found = False
+		if len(merchant_obj_from.connections)>0:
+			for i in range(len(merchant_obj_from.connections)):
+				if (merchant_obj_from.connections[i][0] == merchant_obj_to.id):
+					# merchant_obj_2 is here, update the distance
+					merchant_obj_from.connections[i][1] = distance
+					merchant_found = True
+
+		if not merchant_found:
+			merchant_obj_from.connections.append([merchant_obj_to.id,distance])
+
+		return merchant_found
+
+
+
+
 
 class Project:
 	# Class variables, the count gives the project id
