@@ -8,7 +8,7 @@ class Merchant:
 
 	#Common initialisations
 	initial_wealth = 100.
-	initial_no_connections: int = 4
+	initial_no_connections: int = 3
 	initial_skill = 0.
 	#Initial seperation of merchants
 	initial_distance: float = 10.
@@ -22,7 +22,7 @@ class Merchant:
 		self.connections = []
 		self.projects = []
 
-	def Connect_Merchant(merchant_obj_from, merchant_obj_to , distance):
+	def Connect(merchant_obj_from, merchant_obj_to, distance):
 		# i and j should be objects
 		#Allow for asymmetric connections (i.e. should be called Connect_Merchant(merchant_obj_2,merchant_obj_1, distance)
 
@@ -32,16 +32,29 @@ class Merchant:
 			for i in range(len(merchant_obj_from.connections)):
 				if (merchant_obj_from.connections[i][0] == merchant_obj_to.id):
 					# merchant_obj_2 is here, update the distance
-					merchant_obj_from.connections[i][1] = distance
+					merchant_obj_from.connections[i][1] = np.float16(distance)
 					merchant_found = True
 
 		if not merchant_found:
-			merchant_obj_from.connections.append([merchant_obj_to.id,distance])
+			merchant_obj_from.connections.append([int(merchant_obj_to.id),np.float16(distance)])
 
 		return merchant_found
 
+	def ConnectionsM(merchants):#Merchants is an array of merchant objects
+		length = len(merchants)
+		matrix=np.zeros((length,length), dtype= float16)
+		#First index is from, second is to
+		for i in range(length):
+			to_connections=merchants[i].connections
+			if len(to_connections)==0:
+				print("In ConnectionsM, merchant {0} has no connections".format(merchants[i].id))
+			else:
+				for j in range(len(to_connections)):
+					matrix[i,to_connections[j][0]] = to_connections[j][1]  ##No need to link j to id
 
-
+## Need to rethink how connections are being handled because we don't want this too complicated.
+## Is it better to keep things simple here or in the Merchant object. Is using a list best
+## or would an array for each merchant be better
 
 
 class Project:
