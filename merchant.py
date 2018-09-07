@@ -28,13 +28,19 @@ class Merchant:
 		self.idx: int = n #slot in the array of merchant objects
 		self.status = Merchant.initial_status
 		self.projects = []
-		self.connections = np.ones(Merchant.number, dtype=np.float16)*1000
+		self.connections = np.ones(Merchant.number, dtype=np.float16)*1000.
 		self.distances = np.zeros(Merchant.number, dtype=np.float16)
 
 		if n-Merchant.lower < 0:
 			#Need to add connections at the end of the connections array
+			self.connections[n-lower:] = Merchant.initial_connections[0:lower-n]
+			self.connections[:Merchant.initial_no_connections - lower -n+1] = Merchant.initial_connections[lower-n:]
 		else if n+Merchant.upper >= Merchant.number:
 			#Need to add connections a the beginning of the array
+			no_mers_over = n+upper-Merchant.number+1
+			self.connections[:no_mers_over] = Merchant.initial_connections[-no_mers_over:]
+			self.connections[no_mers_over-Merchant.initial_no_connections:] = Merchant.initial_connections[:Merchant.initial_no_connections + 1 -no_mers_over]
+
 		else:
 			self.connections[n-lower:n+upper+1]=Merchant.initial_connections
 
