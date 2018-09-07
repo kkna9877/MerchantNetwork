@@ -42,7 +42,7 @@ class Merchant:
 			#Need to add connections a the beginning of the array
 			no_mers_over = n+Merchant.upper-Merchant.number+1
 			self.connections[:no_mers_over] = Merchant.initial_connections[-no_mers_over:]
-			self.connections[no_mers_over-Merchant.initial_no_connections:] = Merchant.initial_connections[:Merchant.initial_no_connections + 1 -no_mers_over]
+			self.connections[no_mers_over-Merchant.initial_no_connections-1:] = Merchant.initial_connections[:Merchant.initial_no_connections + 1 -no_mers_over]
 
 		else:
 			self.connections[n-Merchant.lower:n+Merchant.upper+1]=Merchant.initial_connections
