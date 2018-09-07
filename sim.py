@@ -2,31 +2,46 @@ import numpy as np
 
 from merchant import Merchant, Project
 
-no_merchants: int = 5
-no_projs: int = 5
 
-merchants = np.array(no_merchants)
 
+
+merchants = np.empty(shape=(Merchant.number,), dtype=object)
+economy_size = 5.  #Needs working on
+
+print(merchants)
 #Create the merchants
-for i in range(no_merchants):
+for i in range(Merchant.number):
 	merchants[i] = Merchant(i)
 
-#Create the connections
+adj_matrix=Matrix.ConnectionsM(merchants)
 
-project_list = []
-thetas = np.random.uniform(Project.theta_min, Project.theta_max, no_projs)
+print(adj_matrix)
+
+projects = np.empty(shape=(Project.number,), dtype=object)
+thetas = np.random.uniform(Project.theta_min, Project.theta_max, Project.number)
 
 #Associate a project with a merchant to get the skill component.
-# Might be different number of projects to merchants so assign them randomly (but in sequence)
-merch_id = np.random.randint(no_merchants)
-for i in range(no_projs):
+# Might be different number of projects to merchants so assign cyclically (they are all random anyway)
+merch_id = 0
+for i in range(Project.number):
 
 	if merch_id == no_merchants:
 		merch_id = 0
 
-	k = np.random.beta(2, 2)+merchants[merch_id].skill  # This will need developing to account for growth etc
+	k = (np.random.beta(2, 2) * economy_size ) + merchants[merch_id].status  # This will need developing to account for growth etc
 
-	project_list.append(Project(k, thetas[i]))
+	projects[i] = Project(k,theta[i],merch_id)
+	merchants[merch_id].projects.append(i)
+
+
+	if merchants[merch_id].cash > projects[i].expectation:
+		merchants[merch_id].cash = merchants[merch_id].cash - projects[i].expectation
+		projects[i].investors[merch_id] = projects[i].expectation
+		projects[i].funded = True
+
+
+
+
 
 
 
