@@ -2,47 +2,49 @@ import numpy as np
 
 class Merchant:
 	#Class variables, the count (id) of the merchants and the number of living merchants: count ge number
-
 	count: int = 0
-	number: int = 0
+	number: int = 10
+
+
 
 	#Common initialisations
 	initial_wealth = 100.
 	initial_no_connections: int = 3
-	initial_skill = 0.
-	#Initial seperation of merchants
+	initial_status: float = 0.
 	initial_distance: float = 10.
 
-	def __init__(self):
+	initial_connections =np.zeros(initial_no_connections+1, dtype = np.float16)
+	lower = int(np.floor(initial_no_connections / 2))
+	upper = int(np.ceil(initial_no_connections / 2))
+	initial_connections[:lower] = initial_distance
+	initial_connections[-upper:] = initial_distance
+
+
+
+
+	def __init__(self, n):
 		Merchant.count += 1
-		Merchant.number += 1
-
 		self.id: int = Merchant.count
-		self.skill = Merchant.initial_skill
-		self.connections = []
+		self.idx: int = n #slot in the array of merchant objects
+		self.status = Merchant.initial_status
 		self.projects = []
+		self.connections = np.ones(Merchant.number, dtype=np.float16)*1000
+		self.distances = np.zeros(Merchant.number, dtype=np.float16)
 
-	def Connect(merchant_obj_from, merchant_obj_to, distance):
-		# i and j should be objects
-		#Allow for asymmetric connections (i.e. should be called Connect_Merchant(merchant_obj_2,merchant_obj_1, distance)
+		if n-Merchant.lower < 0:
+			#Need to add connections at the end of the connections array
+		else if n+Merchant.upper >= Merchant.number:
+			#Need to add connections a the beginning of the array
+		else:
+			self.connections[n-lower:n+upper+1]=Merchant.initial_connections
 
-		#check if merchant_obj_to.id is in merchant_obj_from's connections
-		merchant_found = False
-		if len(merchant_obj_from.connections)>0:
-			for i in range(len(merchant_obj_from.connections)):
-				if (merchant_obj_from.connections[i][0] == merchant_obj_to.id):
-					# merchant_obj_2 is here, update the distance
-					merchant_obj_from.connections[i][1] = np.float16(distance)
-					merchant_found = True
 
-		if not merchant_found:
-			merchant_obj_from.connections.append([int(merchant_obj_to.id),np.float16(distance)])
 
-		return merchant_found
+
 
 	def ConnectionsM(merchants):#Merchants is an array of merchant objects
 		length = len(merchants)
-		matrix=np.zeros((length,length), dtype= float16)
+		matrix=np.zeros((length,length), dtype= np.float16)
 		#First index is from, second is to
 		for i in range(length):
 			to_connections=merchants[i].connections
