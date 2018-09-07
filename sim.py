@@ -39,6 +39,8 @@ for i in range(Project.number):
 		projects[i].investors[merch_id] = projects[i].expectation
 		projects[i].funded = True
 
+	#Sort un-funded projects according to mu/sigma=sqrt(k)
+
 
 
 
