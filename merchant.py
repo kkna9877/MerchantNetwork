@@ -142,6 +142,15 @@ class Project:
 				else:
 					available_cash = (merchants[j].cash - 2. * Merchant.reserve) + available_cash
 
+			if available_cash > projects[i].expectation: #Should fund this
+				#Self-fund
+				requirement = projects[i].expectation - (merchants[owner].cash - Merchant.reserve)
+				merchants[owner].cash =  Merchant.reserve
+				projects[i].investors[owner] = projects[i].expectation
+				#Use closest neighbours first,
+				for j in np.argsort(contacts)[1:].to_list():
+
+
 
 
 

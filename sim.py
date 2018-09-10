@@ -35,7 +35,7 @@ for i in range(Project.number):
 
 
 	if (merchants[merch_id].cash - Merchant.reserve) > projects[i].expectation:
-		merchants[merch_id].cash = merchants[merch_id].cash - projects[i].expectation
+		merchants[merch_id].cash = (merchants[merch_id].cash - Merchant.reserve) - projects[i].expectation
 		projects[i].investors[merch_id] = projects[i].expectation
 		projects[i].funded = True
 
