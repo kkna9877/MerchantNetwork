@@ -13,8 +13,8 @@ economy_size = 5.  #Needs working on
 for i in range(Merchant.number):
 	merchants[i] = Merchant(i)
 
-adj_matrix=Merchant.ConnectionsM(merchants)
 
+shortest_paths = Merchant.ShortestPaths(merchants)
 
 
 projects = np.empty(shape=(Project.number,), dtype=object)
@@ -30,16 +30,22 @@ for i in range(Project.number):
 
 	k = (np.random.beta(2, 2) * economy_size ) + merchants[merch_id].status  # This will need developing to account for growth etc
 
-	projects[i] = Project(k,thetas[i],merch_id)
+	projects[i] = Project(i, k,thetas[i],merch_id)
 	merchants[merch_id].projects.append(i)
 
 
-	if merchants[merch_id].cash > projects[i].expectation:
+	if (merchants[merch_id].cash - Merchant.reserve) > projects[i].expectation:
 		merchants[merch_id].cash = merchants[merch_id].cash - projects[i].expectation
 		projects[i].investors[merch_id] = projects[i].expectation
 		projects[i].funded = True
 
-	#Sort un-funded projects according to mu/sigma=sqrt(k)
+	merch_id += 1
+
+#Sort un-funded projects according to mu/sigma=sqrt(k)
+unfunded_list = Project.Unfunded(projects)
+
+Project.Fund(unfunded_list,projects,merchants )
+
 
 
 
