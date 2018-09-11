@@ -119,15 +119,17 @@ class Project:
 
 	def Print(project):
 		if not project.funded:
-			print(f'Project id: {project.id:4}, Index :{project.idx:4},  k: {project.k:5.3}, theta: {project.theta:5.3}, Payoff: {project.payoff:5.3}, Owner: {project.owner:4}, \n Funded: {project.funded}\n')
+			print(f'Project id: {project.id:4}, Index :{project.idx:4},  k: {project.k:5.3}, theta: {project.theta:5.3}, Cost: {project.expectation:5.3}, Payoff: {project.payoff:5.3}, Owner: {project.owner:4}, \n Funded: {project.funded}\n')
 		else:
-			print(f'Project id: {project.id:4}, Index :{project.idx:4},  k: {project.k:5.3}, theta: {project.theta:5.3}, Payoff: {project.payoff:5.3}, Owner: {project.owner:4}, \n Funded: {project.investors}\n')
+			print(f'Project id: {project.id:4}, Index :{project.idx:4},  k: {project.k:5.3}, theta: {project.theta:5.3}, Cost: {project.expectation:5.3}, Payoff: {project.payoff:5.3}, Owner: {project.owner:4}, \n Funded: {project.investors}\n')
 
 	def AllocateFunds(merchant, merch_id, cash, project, project_id):
 		merchant.cash = merchant.cash - cash
 		merchant.projects.append(project.idx)
 		merchant.cur_funding[project_id] = cash
 		project.investors[merch_id] = cash
+		if round(float(np.sum(project.investors)),2) == round(float(project.expectation),2):
+			project.funded=True
 
 
 
@@ -136,12 +138,14 @@ class Project:
 		number = len(unfunded_list)
 		preferences = np.zeros((number))
 
+
 		for i in range(number):
 			preferences[i] = projects[unfunded_list[i]].k #Should be sqrt(k) to give share ration of Gamma, but we only are ordering
 
 		ranked_unfunded_projects = []
 		for i in list(reversed(np.argsort(preferences).tolist())): #List of
 			ranked_unfunded_projects.append(unfunded_list[i])
+
 		for i in ranked_unfunded_projects:
 			owner=projects[i].owner
 			contacts = merchants[owner].distances
@@ -164,31 +168,30 @@ class Project:
 							else:
 								funding[j] = min(max(merchants[j].cash - 2. * merchants[j].reserve, 0),funds_needed)
 
+
 			#Looped over all other investors, now see if the owner can fund
 			if projects[i].expectation - owner_cash - np.sum(funding)>0.: #Need to dip into status
 				funding_short = projects[i].expectation - owner_cash - np.sum(funding)
 				if merchants[owner].status > funding_short/Merchant.status_cash_conversion:
 					merchants[owner].status = merchants[owner].status - funding_short/Merchant.status_cash_conversion
 					owner_cash = owner_cash + funding_short
+			funding[owner]=owner_cash
 
+			if round(float(projects[i].expectation)  - np.sum(funding),1) == 0.:  #This project is funded
 
-
-			if round(projects[i].expectation - owner_cash - np.sum(funding)) == 0.:  #This project is funded
 				Project.AllocateFunds(merchants[owner], owner, owner_cash, projects[i], i)
 				for j in range(Merchant.number):
 					if funding[j]>0.:
-						if j==owner:
-							print(f'Problem: double allocation?? merchants[{j}], {funding[j]}, projects[{i}]')
 						Project.AllocateFunds(merchants[j], j, funding[j], projects[i], i)
 
-				if round(float(np.sum(projects[i].investors)),2) == round(projects[i].expectation,2):
-					projects[i].funded = True
-				else:
-					print(f'Problem funding project {i}: Sum of investments = {round(float(np.sum(projects[i].investors)),2)}, cost = {round(projects[i].expectation,2)}')
-					for i in range(Project.number):
-						Project.Print(projects[i])
-					for i in range(Merchant.number):
-						Merchant.Print(merchants[i])
+				if not projects[i].funded:
+					print(f'Problem funding project {i}: Sum of investments = {round(float(np.sum(projects[i].investors)),2)}, cost = {round(float(projects[i].expectation),2)}')
+					#for i in range(Project.number):
+					#	Project.Print(projects[i])
+					#for i in range(Merchant.number):
+					#	Merchant.Print(merchants[i])
+			else:
+				print(f'Project {i} unfunded, {projects[i].expectation} needed, {np.sum(funding)} available')
 
 
 
