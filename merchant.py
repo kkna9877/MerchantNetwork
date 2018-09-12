@@ -40,7 +40,7 @@ class Merchant:
 		self.reserve = Merchant.reserve #What the merchant uses to live on, increases with status but can be used to avoid bankruptcy at the expense of status
 		self.projects = []
 		self.cur_funding = np.zeros(Merchant.number, dtype=np.float16)
-		self.connections = np.ones(Merchant.number, dtype=np.float16)*10.
+		self.connections = np.ones(Merchant.number, dtype=np.float16)*1000.#The value 1000 indicates impossibly far away
 		self.distances = np.zeros(Merchant.number, dtype=np.float16)
 		self.birth = Merchant.step
 
@@ -111,6 +111,23 @@ class Merchant:
 		number = len(merchants)
 
 		for j in range(number):
+			if merchants[j].cash - merchants[j].reserve >= 0:
+				#Merchant is NOT bankrupted
+				merchants[j].cash = merchants[j].cash - merchants[j].reserve #Do the period consumption
+				merchants[j].status = merchants[j].status + max(merchants[j].cash - merchants[j].reserve, 0) #Transfer excess cash to status
+				merchants[j].reserve = Merchant.reserve + merchants[j].status/Merchant.status_cash_conversion
+			else:
+				#Merchant is  bankrupted
+				merchants[j].cash = merchants[j].cash - merchants[j].reserve
+				merchants[j] = Merchant(j) #Create a new merchant in this slot
+				#Need to reset connections TO this merchant
+				for k in range(number):
+					if j != k:
+						merchants[k].connections[j] = initial_distance
+
+
+
+
 
 
 
