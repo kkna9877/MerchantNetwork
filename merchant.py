@@ -1,6 +1,7 @@
 import numpy as np
+import pickle
 import igraph as ig
-import typing
+
 
 class Merchant:
 	#Class variables, the count (id) of the merchants and the number of living merchants: count ge number
@@ -9,6 +10,8 @@ class Merchant:
 	neighbour:int = 30
 	reserve: float = 2.5
 	status_cash_conversion: float = 4.
+	step: int = 0	#The simulation time step to set merchants' ages
+	decay: float = np.log(0.5)/5.	#The decay factor, half life of 5 steps
 
 
 
@@ -37,8 +40,9 @@ class Merchant:
 		self.reserve = Merchant.reserve #What the merchant uses to live on, increases with status but can be used to avoid bankruptcy at the expense of status
 		self.projects = []
 		self.cur_funding = np.zeros(Merchant.number, dtype=np.float16)
-		self.connections = np.ones(Merchant.number, dtype=np.float16)*1000.
+		self.connections = np.ones(Merchant.number, dtype=np.float16)*10.
 		self.distances = np.zeros(Merchant.number, dtype=np.float16)
+		self.birth = Merchant.step
 
 		if n-Merchant.lower < 0:
 			#Need to add connections at the end of the connections array
@@ -79,10 +83,39 @@ class Merchant:
 
 		return outarr
 
+	def Affinity(project, subject,  counterparty):#The affinity is a multiplicative factor that changes an investors attitude to the other investors in a project
+		#Affinity defined by a generalised logistic function https://en.wikipedia.org/wiki/Generalised_logistic_function
+		#Basic variable (t) is (wealth with project/wealth without) - 1. Wealth is defined as cash + status/conversion
+		#This is adjusted by a scale (C) defined by the relative contribution of the counterparty to the total investment
+		#	(Total funding - counterparty funding)/Total funding., which is small if the counterparty invests a lot
 
-## Need to rethink how connections are being handled because we don't want this too complicated.
-## Is it better to keep things simple here or in the Merchant object. Is using a list best
-## or would an array for each merchant be better
+		#Project payoff
+		payoff =  project.payoff/project.expectation
+
+		#Payoff to investor
+		j = subject.idx
+		subject_wealth_without = subject.cash + subject.status/Merchant.status_cash_conversion + project.investors[j]
+		subject_wealth_with = subject.cash + subject.status/Merchant.status_cash_conversion + project.investors[j]*payoff
+		t = subject_wealth_with/subject_wealth_without - 1.
+
+
+		#Counterparty
+		k = counterparty.idx
+		#C = 1. - project.investors[k]/project.expectation
+		C = 1.
+		affinity = 1.5 - 1./(C+np.exp(-t))
+
+		return affinity
+
+	def Status(merchants):Convert cash into status, and bankrupt any merchants who run out of cash
+		number = len(merchants)
+
+		for j in range(number):
+
+
+
+
+
 
 
 class Project:
@@ -98,14 +131,15 @@ class Project:
 			Project.count += 1
 			self.id: int = Project.count
 			self.idx: int = idx
-			self.k: float = k
-			self.theta: float = theta
+			self.k: float = round(k, 2)
+			self.theta: float = round(theta,2)
 			self.expectation: float = round(k * theta,2)
 			self.variance: float = theta * self.expectation
 			self.payoff: float = round(float(np.random.gamma(k, theta, 1)),2)
 			self.owner :int = owner # idx of owner
 			self.investors= np.zeros(Merchant.number, dtype=np.float16) #each merchant's investment in project
 			self.funded = False #has the project been fully funded
+			print(f'k: {self.k}, theta: {self.theta}, expectation: {self.expectation}, payoff: {self.payoff}')
 		else:
 			raise ValueError(f'Project initialisation: k ({k}) and theta ({theta}) must be positive')
 
@@ -194,8 +228,67 @@ class Project:
 				print(f'Project {i} unfunded, {projects[i].expectation} needed, {np.sum(funding)} available')
 
 
+	def OwnerPrefProjects(merchants):#Take an array of merchant objects and return an array of projects.
+		#A merchant is assigned to a project and prefers to fund that project
+		economy_size = 5.
+		projects = np.empty(shape=(Project.number,), dtype=object)
+		thetas = np.random.uniform(Project.theta_min, Project.theta_max, Project.number)
+		ks= np.zeros(Project.number)
+
+		#Associate a project with a merchant to get the skill component.
+		# Might be different number of projects to merchants so assign cyclically (they are all random anyway)
+		merch_id = 0
+		for i in range(Project.number):
+
+			if merch_id == Merchant.number:
+				merch_id = 0
+
+			ks[i] = (np.random.beta(2, 2) * economy_size ) + merchants[merch_id].status  # This will need developing to account for growth etc
 
 
+			projects[i] = Project(i, ks[i],thetas[i],merch_id)
+			merchants[merch_id].projects.append(i)
+
+
+
+
+			if (merchants[merch_id].cash - merchants[merch_id].reserve) > projects[i].expectation:
+				Project.AllocateFunds(merchants[merch_id], merch_id, projects[i].expectation, projects[i], i)
+				print(f'Project {i} self funded by {merch_id}')
+
+			Project.Print(projects[i])
+
+			merch_id += 1
+
+		#Store these for debugging
+		pickle.dump(ks, open('k.p',"wb"))
+		pickle.dump(thetas, open('thetas.p',"wb"))
+
+		return projects
+
+
+
+	def Profit(projects,merchants):#Take aan array of projects and merchants and distribute the profits of the project, adjust status and connections
+		#First get the initial stsuses of the merchants
+		original_status=np.zeros((Merchant.number))
+		for j in range(Merchant.number):
+			original_status[j]=merchants[j].status
+
+		for i in range(Project.number):
+			print(f'Project: {projects[i].idx} , Cost: {projects[i].expectation}, Payoff: {float(projects[i].payoff)},\nInvestors: {projects[i].investors}')
+			payoff =  projects[i].payoff/projects[i].expectation
+
+			investors = np.where(projects[i].investors > 0.)[0].tolist()
+			#Do the connections first as this relies on initial status/cash
+			if len(investors)>1:
+				for j in investors:
+					for k in investors:
+						if j != k:
+							affinity = Merchant.Affinity(projects[i],merchants[j],merchants[k])
+							merchants[j].connections[k] = merchants[j].connections[k]*affinity
+			#Now sort out the cash
+			for j in investors:
+				merchants[j].cash = merchants[j].cash + projects[i].investors[j]*payoff
 
 
 
