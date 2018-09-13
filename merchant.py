@@ -1,5 +1,6 @@
 import numpy as np
 import pickle
+import json # Could improve this
 import igraph as ig
 
 
@@ -7,10 +8,10 @@ class Merchant:
 	#Class variables, the count (id) of the merchants and the number of living merchants: count ge number
 	count: int = 0
 	number: int = 10
+	step: int = 0	#The simulation time step to set merchants' ages
 	neighbour:int = 30
 	reserve: float = 2.5
 	status_cash_conversion: float = 4.
-	step: int = 0	#The simulation time step to set merchants' ages
 	decay: float = np.log(0.5)/5.	#The decay factor, half life of 5 steps
 
 
@@ -43,6 +44,7 @@ class Merchant:
 		self.connections = np.ones(Merchant.number, dtype=np.float16)*1000.#The value 1000 indicates impossibly far away
 		self.distances = np.zeros(Merchant.number, dtype=np.float16)
 		self.birth = Merchant.step
+		self.death = np.inf
 
 		if n-Merchant.lower < 0:
 			#Need to add connections at the end of the connections array
@@ -107,7 +109,7 @@ class Merchant:
 
 		return affinity
 
-	def Status(merchants):Convert cash into status, and bankrupt any merchants who run out of cash
+	def Status(merchants):#Convert cash into status, and bankrupt any merchants who run out of cash
 		number = len(merchants)
 
 		for j in range(number):
@@ -119,6 +121,7 @@ class Merchant:
 			else:
 				#Merchant is  bankrupted
 				merchants[j].cash = merchants[j].cash - merchants[j].reserve
+
 				merchants[j] = Merchant(j) #Create a new merchant in this slot
 				#Need to reset connections TO this merchant
 				for k in range(number):
