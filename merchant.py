@@ -1,6 +1,6 @@
 import numpy as np
 import pickle
-import json # Could improve this
+import time
 import igraph as ig
 
 
@@ -9,10 +9,12 @@ class Merchant:
 	count: int = 0
 	number: int = 10
 	step: int = 0	#The simulation time step to set merchants' ages
+	seed: int = int(time.strftime("%Y%m%d%H%M%S"))# Random seed
 	neighbour:int = 30
 	reserve: float = 2.5
 	status_cash_conversion: float = 4.
-	decay: float = np.log(0.5)/5.	#The decay factor, half life of 5 steps
+	decay: float = np.log(0.5)/3.	#The decay factor, half life of 3 steps
+	log_file:str =str(f"Merchants_{seed}.log")
 
 
 
@@ -61,8 +63,16 @@ class Merchant:
 
 
 	def Print(merchant):
-		print(f'Project id: {merchant.id:4}, Index :{merchant.idx:4},  Status: {merchant.status:5.3}, Cash: {merchant.cash:5.3}, Projects: {merchant.projects}')
-		print(f'\t\tDistances: {merchant.distances}')
+		out=str(f'Merchant_{merchant.id:4}, Index :{merchant.idx:4}, Status: {merchant.status:5.3}, Cash: {merchant.cash:5.3}, Birth: {merchant.birth}, ')
+		if merchant.death<np.inf:
+			out=out+str(f'Death: {merchant.death}\n')
+		else:
+			out=out+str(f'Death: -- \n')
+		out=out+str(f'Projects_{merchant.id:4}: ')
+		for proj in merchant.projects:
+			out=out+str(f'{proj}, ')
+		#out=out+str(f'\n Distance_{id:4}: /{merchant.distances}/')+"\n\n"
+		return out
 
 
 	def ConnectionsM(merchants):#Merchants is an array of merchant objects
@@ -109,8 +119,19 @@ class Merchant:
 
 		return affinity
 
+	def Dump(merchants):
+		out=open(Merchant.log_file,"a")
+		if isinstance(merchants,np.ndarray):
+			number = len(merchants)
+			for j in number:
+				out.write(Merchant.Print(merchants[j]))
+		elif isinstance(merchants,Merchant):
+			out.write(Merchant.Print(merchants))
+		out.close()
+
 	def Status(merchants):#Convert cash into status, and bankrupt any merchants who run out of cash
 		number = len(merchants)
+		total_status=0.
 
 		for j in range(number):
 			if merchants[j].cash - merchants[j].reserve >= 0:
@@ -120,18 +141,29 @@ class Merchant:
 				merchants[j].reserve = Merchant.reserve + merchants[j].status/Merchant.status_cash_conversion
 			else:
 				#Merchant is  bankrupted
+				print(f'Merchant {j} is bankrupt')
 				merchants[j].cash = merchants[j].cash - merchants[j].reserve
-
+				merchants[j].death = Merchant.step
+				Merchant.Dump(merchants[j])
 				merchants[j] = Merchant(j) #Create a new merchant in this slot
 				#Need to reset connections TO this merchant
 				for k in range(number):
 					if j != k:
-						merchants[k].connections[j] = initial_distance
+						merchants[k].connections[j] = Merchant.initial_distance
 
+			total_status = total_status + merchants[j].status
 
+		#Now adjust the merchants' visabilities: distances to the highest status merchants shortens
+		average_status = total_status/number
 
-
-
+		for j in range(number):
+			t=merchants[j].status/average_status
+			visibility =  1.5-1./(1+np.exp(-(t-1.)))
+			age_factor = 1.0 - np.exp(Merchant.decay *(Merchant.step - merchants[j].birth)) # Ignore status correction for young merchants, to give them a chance
+			correction = visibility * age_factor
+			for k in range(number):
+				if j != k:
+					merchants[k].connections[j] = merchants[k].connections[j] * correction
 
 
 
@@ -141,10 +173,11 @@ class Merchant:
 class Project:
 	# Class variables, the count gives the project id
 	count: int = 0
-	number: int = Merchant.number
+	number: int = Merchant.number #Could change
 
 	theta_min: float = 0.5
 	theta_max: float = 2.0
+	log_file:str =str(f"Projects_{Merchant.seed}.log")
 
 	def __init__(self, idx, k, theta, owner):
 		if (k>0) and (theta>0):
@@ -159,7 +192,7 @@ class Project:
 			self.owner :int = owner # idx of owner
 			self.investors= np.zeros(Merchant.number, dtype=np.float16) #each merchant's investment in project
 			self.funded = False #has the project been fully funded
-			print(f'k: {self.k}, theta: {self.theta}, expectation: {self.expectation}, payoff: {self.payoff}')
+
 		else:
 			raise ValueError(f'Project initialisation: k ({k}) and theta ({theta}) must be positive')
 
@@ -171,11 +204,6 @@ class Project:
 
 		return unfunded
 
-	def Print(project):
-		if not project.funded:
-			print(f'Project id: {project.id:4}, Index :{project.idx:4},  k: {project.k:5.3}, theta: {project.theta:5.3}, Cost: {project.expectation:5.3}, Payoff: {project.payoff:5.3}, Owner: {project.owner:4}, \n Funded: {project.funded}\n')
-		else:
-			print(f'Project id: {project.id:4}, Index :{project.idx:4},  k: {project.k:5.3}, theta: {project.theta:5.3}, Cost: {project.expectation:5.3}, Payoff: {project.payoff:5.3}, Owner: {project.owner:4}, \n Funded: {project.investors}\n')
 
 	def AllocateFunds(merchant, merch_id, cash, project, project_id):
 		merchant.cash = merchant.cash - cash
@@ -276,7 +304,7 @@ class Project:
 				Project.AllocateFunds(merchants[merch_id], merch_id, projects[i].expectation, projects[i], i)
 				print(f'Project {i} self funded by {merch_id}')
 
-			Project.Print(projects[i])
+			print(Project.Print(projects[i]))
 
 			merch_id += 1
 
@@ -295,7 +323,6 @@ class Project:
 			original_status[j]=merchants[j].status
 
 		for i in range(Project.number):
-			print(f'Project: {projects[i].idx} , Cost: {projects[i].expectation}, Payoff: {float(projects[i].payoff)},\nInvestors: {projects[i].investors}')
 			payoff =  projects[i].payoff/projects[i].expectation
 
 			investors = np.where(projects[i].investors > 0.)[0].tolist()
@@ -310,7 +337,26 @@ class Project:
 			for j in investors:
 				merchants[j].cash = merchants[j].cash + projects[i].investors[j]*payoff
 
+	def Print(project):
+
+		if not project.funded:
+			out=str(f'Project_{project.id:4}, Index :{project.idx:4},  k: {project.k:5.3}, theta: {project.theta:5.3}, Cost: {project.expectation:5.3}, Payoff: {project.payoff:5.3}, Owner: {project.owner:4}, \nNot Funded\n\n')
+		else:
+			out=str(f'Project_{project.id:4}, Index :{project.idx:4},  k: {project.k:5.3}, theta: {project.theta:5.3}, Cost: {project.expectation:5.3}, Payoff: {project.payoff:5.3}, Owner: {project.owner:4}, \nFunding_{project.id:4}: /[ ')
+			for i in range(Merchant.number):
+				out = out +str(f'{project.investors[i]}, ')
+			out=out+str("]/\n\n")
+		return out
 
 
+	def Dump(projects):
+		out=open(Project.log_file,"a")
+		if isinstance(projects,np.ndarray):
+			number = len(projects)
+			for j in range(number):
+				out.write(Project.Print(projects[j]))
+		elif isinstance(projects,Project):
+			out.write(Project.Print(projects))
+		out.close()
 
 

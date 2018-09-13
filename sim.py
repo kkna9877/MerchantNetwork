@@ -5,7 +5,7 @@ from merchant import Merchant, Project
 
 
 
-
+np.random.seed(int(str(Merchant.seed)[-8:]))#Random seed must be <2**32-1 so take D:H:mm:ss
 merchants = np.empty(shape=(Merchant.number,), dtype=object)
   #Needs working on
 
@@ -27,10 +27,14 @@ Project.Fund(unfunded_list,projects,merchants )
 
 print(f'\n\nOutput')
 for i in range(Project.number):
-	Project.Print(projects[i])
+	print(Project.Print(projects[i]))
 
 Project.Profit(projects,merchants)
 Merchant.Status(merchants)
+adj_matrix = Merchant.ConnectionsM(merchants)
+print(adj_matrix)
+
+Project.Dump(projects)
 
 
 
