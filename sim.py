@@ -23,16 +23,20 @@ projects=Project.OwnerPrefProjects(merchants)
 unfunded_list = Project.Unfunded(projects)
 
 Project.Fund(unfunded_list,projects,merchants )
+Merchant.ProjectAllocation(merchants,projects)
 
 
-print(f'\n\nOutput')
-for i in range(Project.number):
-	print(Project.Print(projects[i]))
+print("AFTER FUNDING")
+
+for j in range(Project.number):
+	print(Project.Print(projects[j]))
+for j in range(Merchant.number):
+	print(Merchant.Print(merchants[j]))
 
 Project.Profit(projects,merchants)
 Merchant.Status(merchants)
-adj_matrix = Merchant.ConnectionsM(merchants)
-print(adj_matrix)
+
+print(Merchant.connections)
 
 Project.Dump(projects)
 
