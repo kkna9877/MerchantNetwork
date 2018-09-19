@@ -11,7 +11,7 @@ class Merchant:
 	step: int = 0	#The simulation time step to set merchants' ages
 	seed: int = int(time.strftime("%Y%m%d%H%M%S"))# Random seed
 	#seed: int = 20180914101053
-	neighbour:int = 30
+	neighbour:int = 150
 	reserve: float = 2.5
 	status_cash_conversion: float = 4.
 	decay: float = np.log(0.5)/3.	#The decay factor, half life of 3 steps
@@ -23,7 +23,7 @@ class Merchant:
 	initial_wealth = 100.
 	initial_no_connections: int = 3
 	initial_status: float = 0.
-	initial_distance: float = 10.
+	initial_distance: float = 50.
 	initial_cash: float = 5.
 
 	connections=np.ones((number,number))*1000.#The value 1000 indicates impossibly far away
@@ -43,7 +43,7 @@ class Merchant:
 		self.idx: int = n #slot in the array of merchant objects
 		self.status = Merchant.initial_status
 		self.cash = Merchant.initial_cash
-		self.reserve = Merchant.reserve #What the merchant uses to live on, increases with status but can be used to avoid bankruptcy at the expense of status
+		self.reserve = Merchant.reserve #Annual profit goes into reserve, which increases with status and can be used to avoid bankruptcy at the expense of status
 		self.projects = []
 		self.cur_funding = np.zeros(Merchant.number)
 		self.distances = np.zeros(Merchant.number)
@@ -132,15 +132,13 @@ class Merchant:
 		total_status=0.
 
 		for j in range(number):
-			if merchants[j].cash - merchants[j].reserve >= 0:
+			if merchants[j].cash > 0:
 				#Merchant is NOT bankrupted
-				merchants[j].cash = merchants[j].cash - merchants[j].reserve #Do the period consumption
 				merchants[j].status = merchants[j].status + max(merchants[j].cash - merchants[j].reserve, 0) #Transfer excess cash to status
 				merchants[j].reserve = Merchant.reserve + merchants[j].status/Merchant.status_cash_conversion
 			else:
 				#Merchant is  bankrupted
 				print(f'Merchant {j} is bankrupt')
-				merchants[j].cash = merchants[j].cash - merchants[j].reserve
 				merchants[j].death = Merchant.step
 				Merchant.Dump(merchants[j])
 				merchants[j] = Merchant(j) #Create a new merchant in this slot
@@ -158,28 +156,47 @@ class Merchant:
 			t=merchants[j].status/average_status
 			visibility =  1.5-1./(1+np.exp(-(t-1.)))
 			age_factor = 1.0 - np.exp(Merchant.decay *(Merchant.step - merchants[j].birth)) # Ignore status correction for young merchants, to give them a chance
-			correction = visibility * age_factor
+			correction = visibility #* age_factor
+
 			for k in range(number):
-				if j != k:
-					Merchant.connections[k,j] = Merchant.connections[k,j] * correction
+				if j != k and Merchant.connections[k,j]<1000.:
+					Merchant.connections[k,j] = round(Merchant.connections[k,j] * correction,2)
 
 	def ProjectAllocation(merchants,projects):#After the funding has been done, make sure all the projects are correctly assigned to merchants, i.e. a double check
 		for i in range(Project.number):
 			if projects[i].funded:
+				all_good=True
 				investors= projects[i].investors
-				if round(np.sum(investors) - projects[i].expectation,2) == 0:
-					for j in np.where(investors>0)[0].tolist():
+				if round(np.sum(projects[i].investors) - projects[i].expectation,2) == 0:
+					for j in np.where(projects[i].investors>0)[0].tolist():
 						investments = merchants[j].cur_funding
 						if round(investors[j] - investments[i]) == 0:
 							merchants[j].projects.append(projects[i].id)
+
 						else:
 							print(f'Problem matching project {i} and merchant {j}: {investors[j]} and {investments[i]}')
 							print(f'Project {i} investors: {investors}')
 							print(f'Merchant {j} investments: {investments}')
+							all_good=False
 
 				else:
-					print(f'Project {i} investment is wrong: invested = {np.sum(investors)}, cost = projects[i].expection')
+					print(f'Project {i} investment is wrong: invested = {np.sum(projects[i].investors)}, cost = {projects[i].expectation}')
+					print(Project.Print(projects[i]))
+					all_good=False
 
+				if all_good: #We have a consortium so connect all members
+					investors=np.where(projects[i].investors>0)[0].tolist()
+					for j in investors:
+						for k in investors:
+							if j != k:
+								Merchant.connections[j,k] = round(min(merchants[j].distances[k], Merchant.initial_distance),2)
+
+
+	def EndStep(merchants):
+		number = len(merchants)
+		for j in range(number):
+			merchants[j].cur_funding = np.zeros(Merchant.number)
+		Merchant.ShortestPaths(merchants)
 
 
 
@@ -293,8 +310,9 @@ class Project:
 		#A merchant is assigned to a project and prefers to fund that project
 		economy_size = 5.
 		projects = np.empty(shape=(Project.number,), dtype=object)
+		betas= np.random.beta(2, 2, size = Project.number)
 		thetas = np.random.uniform(Project.theta_min, Project.theta_max, Project.number)
-		ks= np.zeros(Project.number)
+
 
 		#Associate a project with a merchant to get the skill component.
 		# Might be different number of projects to merchants so assign cyclically (they are all random anyway)
@@ -304,10 +322,11 @@ class Project:
 			if merch_id == Merchant.number:
 				merch_id = 0
 
-			ks[i] = (np.random.beta(2, 2) * economy_size ) + merchants[merch_id].status  # This will need developing to account for growth etc
+			target =   (betas[i]+0.5)*merchants[merch_id].reserve# This is the target expectation of the project
+			k = target/thetas[i]
 
 
-			projects[i] = Project(i, ks[i],thetas[i],merch_id)
+			projects[i] = Project(i, k,thetas[i],merch_id)
 
 
 
@@ -319,9 +338,7 @@ class Project:
 
 			merch_id += 1
 
-		#Store these for debugging
-		pickle.dump(ks, open('k.p',"wb"))
-		pickle.dump(thetas, open('thetas.p',"wb"))
+
 
 		return projects
 
@@ -369,5 +386,33 @@ class Project:
 		elif isinstance(projects,Project):
 			out.write(Project.Print(projects))
 		out.close()
+
+	def __delete__(self, instance):
+
+		del self.id
+		del self.idx
+		del self.k
+		del self.theta
+		del self.expectation
+		del self.variance
+		del self.payoff
+		del self.owner
+		del self.investors
+		del self.funded
+
+	def Delete(projects):
+		for i in range(Project.number):
+			del projects[i].id
+			del projects[i].idx
+			del projects[i].k
+			del projects[i].theta
+			del projects[i].expectation
+			del projects[i].variance
+			del projects[i].payoff
+			del projects[i].owner
+			del projects[i].investors
+			del projects[i].funded
+			projects[i]=0
+		del projects
 
 
