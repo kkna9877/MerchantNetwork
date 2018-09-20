@@ -14,7 +14,7 @@ merchants = np.empty(shape=(Merchant.number,), dtype=object)
 for i in range(Merchant.number):
 	merchants[i] = Merchant(i)
 
-while Merchant.count<15:
+while Project.count<30:
 	shortest_paths = Merchant.ShortestPaths(merchants)
 
 	projects=Project.OwnerPrefProjects(merchants)
@@ -24,29 +24,30 @@ while Merchant.count<15:
 
 	Project.Fund(unfunded_list,projects,merchants )
 
+	print(f'\n\nSTEP {Merchant.step}')
+	for j in range(Project.number):
+		print(Project.Print(projects[j]))
 
+	for j in range(Merchant.number):
+		print(Merchant.Print(merchants[j]))
 
 	Merchant.ProjectAllocation(merchants,projects)
 
-	print(Merchant.connections)
-	print(f"\n\nAFTER FUNDING step {Merchant.step}")
 
-
-	for j in range(Project.number):
-		print(Project.Print(projects[j]))
-	for j in range(Merchant.number):
-		print(Merchant.Print(merchants[j]))
 
 	Project.Profit(projects,merchants)
 	Merchant.step += 1
 
-	Merchant.Status(merchants)
+
+
 	Project.Dump(projects)
 	Project.Delete(projects)
 	Merchant.EndStep(merchants)
+	print(f'\nEnd of Turn {Merchant.step}')
+	for j in range(Merchant.number):
+		print(Merchant.Print(merchants[j]))
 
-	print("\n\nAFTER STATUS")
-	print(Merchant.connections)
+
 
 
 #Project.Dump(projects)

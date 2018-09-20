@@ -9,8 +9,8 @@ class Merchant:
 	count: int = 0
 	number: int = 10
 	step: int = 0	#The simulation time step to set merchants' ages
-	seed: int = int(time.strftime("%Y%m%d%H%M%S"))# Random seed
-	#seed: int = 20180919105055
+	#seed: int = int(time.strftime("%Y%m%d%H%M%S"))# Random seed
+	seed: int = 20180920102456
 	neighbour:int = 150
 	reserve: float = 2.5
 	status_cash_conversion: float = 4.
@@ -65,12 +65,12 @@ class Merchant:
 
 
 	def Print(merchant):
-		out=str(f'Merchant_{merchant.id:4}, Index :{merchant.idx:4}, Time: {str(Merchant.step)}, Status: {merchant.status:5.3}, Cash: {merchant.cash:5.3}, Birth: {merchant.birth}, ')
+		out=str(f'Merchant_{merchant.id:4}, Index :{merchant.idx:4}, Time: {str(Merchant.step)}, Status: {merchant.status:5.3}, Cash: {merchant.cash:5.3}, Reserve: {merchant.reserve:5.3},  Birth: {merchant.birth}, ')
 		if merchant.death<np.inf:
 			out=out+str(f'Death: {merchant.death}\n')
 		else:
 			out=out+str(f'Death: -- \n')
-		out=out+str(f'Projects_{merchant.id:4}: /[ ')
+		out=out+str(f"Projects_{merchant.id:4}: /[ ")
 		for proj in merchant.projects:
 			out=out+str(f'{proj}, ')
 		out=out[:-2]+str(f" ]/\nDistance_{merchant.id:4}: /[ ")
@@ -87,7 +87,7 @@ class Merchant:
 		#np.save('adj_matrix',adj_matrix)
 
 		g=ig.Graph.Weighted_Adjacency(adj_matrix.tolist())
-		outarr=np.asarray(g.shortest_paths(weights='weight'))
+		outarr=np.round(np.asarray(g.shortest_paths(weights='weight')),3)
 		for i in range(Merchant.number):
 			merchants[i].distances = outarr[i,:]
 
@@ -132,10 +132,13 @@ class Merchant:
 		total_status=0.
 
 		for j in range(number):
-			if merchants[j].cash > 0:
+			if round(merchants[j].cash,2) > 0:
 				#Merchant is NOT bankrupted
-				merchants[j].status = merchants[j].status + max(merchants[j].cash - merchants[j].reserve, 0) #Transfer excess cash to status
 				merchants[j].reserve = Merchant.reserve + merchants[j].status/Merchant.status_cash_conversion
+
+				if merchants[j].cash > 2*merchants[j].reserve:#Transfer excess cash to status
+					merchants[j].status = round(merchants[j].status + (merchants[j].cash - 2*merchants[j].reserve),2)
+					merchants[j].cash = round(merchants[j].cash - (merchants[j].cash - 2*merchants[j].reserve),2)
 			else:
 				#Merchant is  bankrupted
 				print(f'Merchant {j} is bankrupt')
@@ -193,9 +196,11 @@ class Merchant:
 
 
 	def EndStep(merchants):
+		Merchant.Status(merchants)
 		number = len(merchants)
 		for j in range(number):
 			merchants[j].cur_funding = np.zeros(Merchant.number)
+			merchants[j].cash = round(merchants[j].cash,3)
 		Merchant.ShortestPaths(merchants)
 
 
@@ -211,7 +216,6 @@ class Project:
 
 	def __init__(self, idx, k, theta, owner):
 		if (k>0) and (theta>0):
-			Project.count += 1
 			self.id: int = Project.count
 			self.idx: int = idx
 			self.k: float = round(k, 2)
@@ -222,6 +226,7 @@ class Project:
 			self.owner :int = owner # idx of owner
 			self.investors= np.zeros(Merchant.number) #each merchant's investment in project
 			self.funded = False #has the project been fully funded
+			Project.count += 1
 
 		else:
 			raise ValueError(f'Project initialisation: k ({k}) and theta ({theta}) must be positive')
@@ -238,8 +243,6 @@ class Project:
 	def AllocateFunds(merchant, merch_id, long_cash, project, project_id):
 		cash=round(float(long_cash),4)
 		merchant.cash = merchant.cash - cash
-		if merchant.cash<0:
-			print(f'Probelm with ne')
 
 		if round(merchant.cur_funding[project_id]) == 0:
 			merchant.cur_funding[project_id] = cash
@@ -276,23 +279,24 @@ class Project:
 				if funds_needed>0.:
 					if j != owner:#The last investor is to be the owner, who will dip into status to fund the project
 						if np.sum(merchants[j].cur_funding) == 0:#Merchant hasn't yet invested, don't go all in
-							funding[j] = round(float(min( max(merchants[j].cash - 2. * merchants[j].reserve, 0) , funds_needed)),3)
+							funding[j] = round(float(min( max(merchants[j].cash -  merchants[j].reserve, 0) , funds_needed)),3)
 						else: #Merchant has invested,
 							own_project_funded = False
 							for proj in np.where(merchants[j].cur_funding>0)[0].tolist():# but have they invested their own project
 								if projects[proj].owner == j:
 									own_project_funded=True
 							if own_project_funded:
-								funding[j] = round(float(min( max(merchants[j].cash -  merchants[j].reserve, 0) ,funds_needed)),3)
+								funding[j] = round(float(min( max(merchants[j].cash, 0) ,funds_needed)),3)
 							else:
-								funding[j] = round(float(min( max(merchants[j].cash - 2. * merchants[j].reserve, 0) ,funds_needed) ),3)
+								funding[j] = round(float(min( max(merchants[j].cash -  merchants[j].reserve, 0) ,funds_needed) ),3)
+
 
 
 			#Looped over all other investors, now see if the owner can fund
 			if projects[i].expectation - owner_cash - np.sum(funding)>0.: #Need to dip into status
 				funding_short = round(float(projects[i].expectation - owner_cash - np.sum(funding)),3)
-				if merchants[owner].status > funding_short/Merchant.status_cash_conversion:
-					merchants[owner].status = merchants[owner].status - funding_short/Merchant.status_cash_conversion
+				if merchants[owner].status/Merchant.status_cash_conversion > funding_short:
+					merchants[owner].status = merchants[owner].status - funding_short*Merchant.status_cash_conversion
 					merchants[owner].cash = merchants[owner].cash + funding_short
 					owner_cash= round(float(merchants[owner].cash -  merchants[owner].reserve),3)
 					print(f'Merchant {owner} converts status to {funding_short} cash for project {projects[i].id}')
@@ -339,7 +343,6 @@ class Project:
 
 			if (merchants[merch_id].cash - merchants[merch_id].reserve) > projects[i].expectation:
 				Project.AllocateFunds(merchants[merch_id], merch_id, projects[i].expectation, projects[i], i)
-				print(f'Project {i} self funded by {merch_id}')
 
 			merch_id += 1
 
@@ -378,7 +381,7 @@ class Project:
 			out=str(f'Project_{project.id:4}, Index :{project.idx:4},  k: {project.k:5.3}, theta: {project.theta:5.3}, Cost: {project.expectation:5.3}, Payoff: {project.payoff:5.3}, Owner: {project.owner:4}, Time: {str(Merchant.step)}\nFunding_{project.id:4}: /[ ')
 			for i in range(Merchant.number):
 				out = out +str(f'{project.investors[i]}, ')
-			out=out+str(f"]/ Total: {np.sum(project.investors)}\n\n")
+			out=out+str(f"]/ Total: {round(np.sum(project.investors),2)}\n\n")
 		return out
 
 
