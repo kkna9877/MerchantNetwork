@@ -24,11 +24,13 @@ while Merchant.count<15:
 
 	Project.Fund(unfunded_list,projects,merchants )
 
+
+
 	Merchant.ProjectAllocation(merchants,projects)
 
-
-	print(f"\n\nAFTER FUNDING step {Merchant.step}")
 	print(Merchant.connections)
+	print(f"\n\nAFTER FUNDING step {Merchant.step}")
+
 
 	for j in range(Project.number):
 		print(Project.Print(projects[j]))

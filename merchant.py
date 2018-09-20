@@ -10,7 +10,7 @@ class Merchant:
 	number: int = 10
 	step: int = 0	#The simulation time step to set merchants' ages
 	seed: int = int(time.strftime("%Y%m%d%H%M%S"))# Random seed
-	#seed: int = 20180914101053
+	#seed: int = 20180919105055
 	neighbour:int = 150
 	reserve: float = 2.5
 	status_cash_conversion: float = 4.
@@ -238,6 +238,9 @@ class Project:
 	def AllocateFunds(merchant, merch_id, long_cash, project, project_id):
 		cash=round(float(long_cash),4)
 		merchant.cash = merchant.cash - cash
+		if merchant.cash<0:
+			print(f'Probelm with ne')
+
 		if round(merchant.cur_funding[project_id]) == 0:
 			merchant.cur_funding[project_id] = cash
 		else:
@@ -273,16 +276,16 @@ class Project:
 				if funds_needed>0.:
 					if j != owner:#The last investor is to be the owner, who will dip into status to fund the project
 						if np.sum(merchants[j].cur_funding) == 0:#Merchant hasn't yet invested, don't go all in
-							funding[j] = round(float(min(max(merchants[j].cash - 2. * merchants[j].reserve, 0),funds_needed)),3)
+							funding[j] = round(float(min( max(merchants[j].cash - 2. * merchants[j].reserve, 0) , funds_needed)),3)
 						else: #Merchant has invested,
 							own_project_funded = False
 							for proj in np.where(merchants[j].cur_funding>0)[0].tolist():# but have they invested their own project
 								if projects[proj].owner == j:
 									own_project_funded=True
 							if own_project_funded:
-								funding[j] = round(float(min(max(merchants[j].cash -  merchants[j].reserve, 0),funds_needed)),3)
+								funding[j] = round(float(min( max(merchants[j].cash -  merchants[j].reserve, 0) ,funds_needed)),3)
 							else:
-								funding[j] = round(float(min(max(merchants[j].cash - 2. * merchants[j].reserve, 0),funds_needed)),3)
+								funding[j] = round(float(min( max(merchants[j].cash - 2. * merchants[j].reserve, 0) ,funds_needed) ),3)
 
 
 			#Looped over all other investors, now see if the owner can fund
@@ -290,7 +293,9 @@ class Project:
 				funding_short = round(float(projects[i].expectation - owner_cash - np.sum(funding)),3)
 				if merchants[owner].status > funding_short/Merchant.status_cash_conversion:
 					merchants[owner].status = merchants[owner].status - funding_short/Merchant.status_cash_conversion
-					owner_cash = round(float(owner_cash + funding_short),3)
+					merchants[owner].cash = merchants[owner].cash + funding_short
+					owner_cash= round(float(merchants[owner].cash -  merchants[owner].reserve),3)
+					print(f'Merchant {owner} converts status to {funding_short} cash for project {projects[i].id}')
 			funding[owner]=owner_cash
 
 			if round(float(projects[i].expectation)  - np.sum(funding),1) == 0.:  #This project is funded
